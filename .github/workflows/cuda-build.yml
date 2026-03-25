@@ -1,0 +1,45 @@
+name: CUDA build
+
+on:
+  push:
+    branches: [ "master" ]
+    paths-ignore:
+      - '**/README.md'
+  pull_request:
+    branches: [ "master" ]
+    paths-ignore:
+      - '**/README.md'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: nvcr.io/nvidia/nvhpc:25.7-devel-cuda_multi-ubuntu22.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Show compiler versions
+      run: |
+        nvcc --version
+        nvc++ --version
+
+    - name: Build library and examples — nvcc/g++ (3-D and 2-D)
+      run: |
+        make           SM=80 -j
+        make examples  SM=80 -j
+        make           SM=80 clean
+
+        make NDIM=2          SM=80 -j
+        make NDIM=2 examples SM=80 -j
+        make NDIM=2          SM=80 clean
+
+    - name: Build library and examples — nvc++ / OpenACC (3-D and 2-D)
+      run: |
+        make                   SM=80 -j
+        make examples openacc=1 SM=80 -j
+        make                   SM=80 clean
+
+        make NDIM=2                   SM=80 -j
+        make NDIM=2 examples openacc=1 SM=80 -j
+        make NDIM=2                   SM=80 clean

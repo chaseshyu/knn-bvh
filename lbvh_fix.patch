@@ -1,0 +1,127 @@
+diff --git a/lbvh/bvh.cuh b/lbvh/bvh.cuh
+index 72b2b30..df218d8 100644
+--- a/lbvh/bvh.cuh
++++ b/lbvh/bvh.cuh
+@@ -17,6 +17,7 @@
+ #include <thrust/iterator/constant_iterator.h>
+ #include <thrust/iterator/counting_iterator.h>
+ #include <thrust/execution_policy.h>
++#include <thrust/unique.h>
+ 
+ namespace lbvh
+ {
+@@ -266,6 +267,10 @@ class bvh
+         this->aabbs_.clear();
+         this->nodes_h_.clear();
+         this->nodes_.clear();
++        this->morton_.clear();
++        this->indices_.clear();
++        this->morton64_.clear();
++        this->flag_container_.clear();
+         return ;
+     }
+ 
+@@ -320,41 +325,41 @@ class bvh
+ 
+         const auto aabb_whole = thrust::reduce(
+             aabbs_.begin() + num_internal_nodes, aabbs_.end(), default_aabb,
+-            [] __device__ (const aabb_type& lhs, const aabb_type& rhs) {
++            [] __device__ (const aabb_type& lhs, const aabb_type& rhs) -> aabb_type {
+                 return merge(lhs, rhs);
+             });
+ 
+-        thrust::device_vector<unsigned int> morton(num_objects);
++        this->morton_.resize(num_objects);
+         thrust::transform(this->objects_d_.begin(), this->objects_d_.end(),
+-            aabbs_.begin() + num_internal_nodes, morton.begin(),
++            aabbs_.begin() + num_internal_nodes, this->morton_.begin(),
+             morton_code_calculator_type(aabb_whole));
+ 
+         // --------------------------------------------------------------------
+         // sort object-indices by morton code
+ 
+-        thrust::device_vector<unsigned int> indices(num_objects);
++        this->indices_.resize(num_objects);
+         thrust::copy(thrust::make_counting_iterator<index_type>(0),
+                      thrust::make_counting_iterator<index_type>(num_objects),
+-                     indices.begin());
++                     this->indices_.begin());
+         // keep indices ascending order
+-        thrust::stable_sort_by_key(morton.begin(), morton.end(),
++        thrust::stable_sort_by_key(this->morton_.begin(), this->morton_.end(),
+             thrust::make_zip_iterator(
+                 thrust::make_tuple(aabbs_.begin() + num_internal_nodes,
+-                                   indices.begin())));
++                                   this->indices_.begin())));
+ 
+         // --------------------------------------------------------------------
+         // check morton codes are unique
+ 
+-        thrust::device_vector<unsigned long long int> morton64(num_objects);
+-        const auto uniqued = thrust::unique_copy(morton.begin(), morton.end(),
+-                                                 morton64.begin());
++        this->morton64_.resize(num_objects);
++        const auto uniqued = thrust::unique_copy(this->morton_.begin(), this->morton_.end(),
++                                                 this->morton64_.begin());
+ 
+-        const bool morton_code_is_unique = (morton64.end() == uniqued);
++        const bool morton_code_is_unique = (this->morton64_.end() == uniqued);
+         if(!morton_code_is_unique)
+         {
+-            thrust::transform(morton.begin(), morton.end(), indices.begin(),
+-                morton64.begin(),
+-                [] __device__ (const unsigned int m, const unsigned int idx)
++            thrust::transform(this->morton_.begin(), this->morton_.end(), this->indices_.begin(),
++                this->morton64_.begin(),
++                [] __device__ (const unsigned int m, const unsigned int idx) -> unsigned long long int
+                 {
+                     unsigned long long int m64 = m;
+                     m64 <<= 32;
+@@ -373,9 +378,9 @@ class bvh
+         default_node.object_idx = 0xFFFFFFFF;
+         this->nodes_.resize(num_nodes, default_node);
+ 
+-        thrust::transform(indices.begin(), indices.end(),
++        thrust::transform(this->indices_.begin(), this->indices_.end(),
+             this->nodes_.begin() + num_internal_nodes,
+-            [] __device__ (const index_type idx)
++            [] __device__ (const index_type idx) -> node_type
+             {
+                 node_type n;
+                 n.parent_idx = 0xFFFFFFFF;
+@@ -391,20 +396,20 @@ class bvh
+         const auto self = this->get_device_repr();
+         if(morton_code_is_unique)
+         {
+-            const unsigned int* node_code = morton.data().get();
++            const unsigned int* node_code = this->morton_.data().get();
+             detail::construct_internal_nodes(self, node_code, num_objects);
+         }
+         else // 64bit version
+         {
+-            const unsigned long long int* node_code = morton64.data().get();
++            const unsigned long long int* node_code = this->morton64_.data().get();
+             detail::construct_internal_nodes(self, node_code, num_objects);
+         }
+ 
+         // --------------------------------------------------------------------
+         // create AABB for each node by bottom-up strategy
+ 
+-        thrust::device_vector<int> flag_container(num_internal_nodes, 0);
+-        const auto flags = flag_container.data().get();
++        this->flag_container_.assign(num_internal_nodes, 0);
++        const auto flags = this->flag_container_.data().get();
+ 
+         thrust::for_each(thrust::device,
+             thrust::make_counting_iterator<index_type>(num_internal_nodes),
+@@ -460,6 +465,10 @@ class bvh
+     thrust::device_vector<aabb_type>     aabbs_;
+     thrust::host_vector  <node_type>     nodes_h_;
+     thrust::device_vector<node_type>     nodes_;
++    thrust::device_vector<unsigned int>          morton_;
++    thrust::device_vector<unsigned int>          indices_;
++    thrust::device_vector<unsigned long long int> morton64_;
++    thrust::device_vector<int>                   flag_container_;
+     bool query_host_enabled_;
+ };
+ 
