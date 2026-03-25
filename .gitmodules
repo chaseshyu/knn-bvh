@@ -1,3 +1,4 @@
 [submodule "lbvh"]
 	path = lbvh
 	url = https://github.com/ToruNiina/lbvh.git
+	ignore = dirty
