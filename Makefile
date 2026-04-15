@@ -121,14 +121,34 @@ examples: prepare
 # Stage 1: Prepare (Submodule & Patches)
 # ---------------------------------------------------------------------------
 prepare:
-	@if git submodule status $(LBVHDIR) | grep -q '^[-+]'; then \
-		echo "Submodule $(LBVHDIR) status mismatch. Updating submodule $(LBVHDIR)..."; \
-		git submodule update --init --recursive --force $(LBVHDIR); \
+# Check and update lbvh submodule
+	@if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+		if git submodule status $(LBVHDIR) | grep -q '^[-+]'; then \
+			echo "Submodule $(LBVHDIR) status mismatch. Updating submodule $(LBVHDIR)..."; \
+			git submodule update --init --recursive --force $(LBVHDIR); \
+		fi; \
+	elif [ -f "$(LBVHDIR)/lbvh/bvh.cuh" ]; then \
+		:; \
+	else \
+		echo "Error: LBVHDIR $(LBVHDIR) is missing or empty. Git is unavailable or this is not a git repo."; \
+		exit 1; \
 	fi
 
-	@if !(cd $(LBVHDIR) && git apply --reverse --check ../$(PATCH_FILE) >/dev/null 2>&1); then \
-		echo "Applying $(PATCH_FILE) to $(LBVHDIR)..."; \
-		(cd $(LBVHDIR) && git apply ../$(PATCH_FILE) && git update-index --skip-worktree lbvh/bvh.cuh); \
+# Check and apply patch to lbvh if not already applied
+	@if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+		if !(cd $(LBVHDIR) && git apply --reverse --check ../$(PATCH_FILE) >/dev/null 2>&1); then \
+			echo "Applying $(PATCH_FILE) to $(LBVHDIR) via git..."; \
+			(cd $(LBVHDIR) && git apply ../$(PATCH_FILE) && git update-index --skip-worktree lbvh/bvh.cuh); \
+		fi; \
+	else \
+		if command -v patch >/dev/null 2>&1; then \
+			if !(cd $(LBVHDIR) && patch -R -p1 --dry-run < ../$(PATCH_FILE) >/dev/null 2>&1); then \
+				echo "Applying $(PATCH_FILE) to $(LBVHDIR) via standard patch..."; \
+				(cd $(LBVHDIR) && patch -N -p1 < ../$(PATCH_FILE) >/dev/null); \
+			fi; \
+		else \
+			echo "Warning: Both 'git' and 'patch' are unavailable. Cannot verify or apply $(PATCH_FILE)."; \
+		fi; \
 	fi
 # to unmask: git update-index --no-skip-worktree lbvh/bvh.cuh 
 
