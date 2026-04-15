@@ -1,3 +1,5 @@
+[![CUDA build](https://github.com/GeoFLAC/knn-bvh/actions/workflows/cuda-build.yml/badge.svg)](https://github.com/GeoFLAC/knn-bvh/actions/workflows/cuda-build.yml)
+
 # knn-bvh
 
 GPU-accelerated K-nearest-neighbor search using a Linear BVH (LBVH) built on CUDA.
