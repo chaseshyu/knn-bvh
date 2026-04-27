@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/1196690829.svg)](https://doi.org/10.5281/zenodo.19827723)
 [![CUDA build](https://github.com/GeoFLAC/knn-bvh/actions/workflows/cuda-build.yml/badge.svg)](https://github.com/GeoFLAC/knn-bvh/actions/workflows/cuda-build.yml)
 
 # knn-bvh

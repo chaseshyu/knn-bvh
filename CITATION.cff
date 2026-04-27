@@ -1,0 +1,10 @@
+cff-version: 1.0.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Shyu
+    given-names: Chase J.
+title: "knn-bvh: GPU-accelerated K-nearest-neighbor search using a Linear BVH"
+version: 1.0.0
+doi: 10.5281/zenodo.19827723
+date-released: 2026-04-27
+url: "https://github.com/geoflac/knn-bvh"
